@@ -1,5 +1,7 @@
 {
   "name": "Home",
-  "integrations": {},
+  "integrations": {
+    "cordova": {}
+  },
   "type": "angular"
 }

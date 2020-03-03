@@ -10,37 +10,40 @@
 </ion-header>
 
 <ion-content>
-  <ion-list class="list" *ngFor="let d of data">
-    
-    <ion-item>
-      <ion-title>
-        {{d.lugar}}
-        <p></p>
-      </ion-title>
-      <ion-toggle checked="{{d.estado}}"  (ionChange)="updateStatus($event,d.id)">
-
-      </ion-toggle>
-    </ion-item>
-    <!-- <ion-item>
-      <ion-title>
-        Kitchen 
-      </ion-title>
-      <ion-toggle [(ngModel)]="kitchen" (ionChange)="updateStatus2(kitchen,'foco2')">
-
-      </ion-toggle>
-    </ion-item>
-    <ion-item>
-      <ion-title>
-        Dining room 
-      </ion-title>
-      <ion-toggle [(ngModel)]="dining" (ionChange)="updateStatus2(dining,'foco3')">
-
-      </ion-toggle>
-    </ion-item> -->
-  </ion-list>
-  <!--
-    <div *ngIf="selectedItem" padding>
-      You navigated here from <b>{{selectedItem.title }}</b>
+  <div *ngIf="showSplash" class="splash">
+    <div class="lds-default">
+      <div></div>
+      <div></div>
+      <div></div>
+      <div></div>
+      <div></div>
+      <div></div>
+      <div></div>
+      <div></div>
+      <div></div>
+      <div></div>
+      <div></div>
+      <div></div>
     </div>
-  -->
+  </div>
+  <div *ngIf="show">
+    <ion-list>
+      <ion-item *ngFor="let d of array">
+        <ion-title (click)="cargarChart(d.id,d.lugar)">{{d.lugar}}</ion-title>
+        <ion-toggle checked="{{d.estado}}"  (ionChange)="updateStatus($event,d.id)"></ion-toggle>
+        <!-- <ion-button  slot="end" size="small" (click)="cargarChart(d.id)">show use</ion-button> -->
+      </ion-item>
+    </ion-list>
+  </div>
+  <ion-card class="welcome-card">
+    <ion-card-header>
+      <ion-card-title>Historial de uso</ion-card-title>
+    </ion-card-header>
+    <ion-card-content>
+      <canvas #chart></canvas>
+    </ion-card-content>
+  </ion-card>
 </ion-content>
+
+
+

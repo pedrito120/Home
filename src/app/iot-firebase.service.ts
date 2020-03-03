@@ -8,20 +8,19 @@ import { Observable } from 'rxjs';
   providedIn: 'root'
 })
 export class IotFirebaseService {
-    object:any
-  constructor(private hostIot:AngularFireDatabase) { }
+  object: any
+  array: any;
+  values: any;
+  constructor(private houseIoT: AngularFireDatabase) { }
 
-  updateStatus(value:any,nombre:any){
-    return this.hostIot.object('/house').update({'foco1':value});
+  updateStatus(stateValue: any , idDocument: any, idHistory: any, hourMinute: any, timeSave: any): Promise<any> {
+    this.houseIoT.object(`/house/${idDocument}`).update({estado : stateValue});
+    return this.houseIoT.object(`/house/${idDocument}/historial/${idHistory}`).update({referencia: hourMinute, estado : stateValue, tiempo : timeSave});
   }
-  updateStatus2(value:any,nombre:any){
-    return this.hostIot.object(`/house/${nombre}`).set(value);
+  insertNewDay(idDocument: any, newIdHistory: any, date: string) {
+    this.houseIoT.object(`/house/${idDocument}/historial/${newIdHistory}`).update({fecha: date});
   }
-  updateStatus3(value:any,id:any){
-    console.log(value , "  ", id)
-    return this.hostIot.object(`/house/${id}`).update({'estado':value});
-  }
-  getStatus():Observable<any>{
-    return this.hostIot.list('house').valueChanges()
+  getStatus(): Observable<any> {
+    return this.houseIoT.list('house').valueChanges();
   }
 }

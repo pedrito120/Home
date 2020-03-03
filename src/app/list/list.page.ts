@@ -1,8 +1,11 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ViewChild } from '@angular/core';
 import { IotFirebaseService } from '../iot-firebase.service';
 import { Focos } from 'src/app/focos';
 import { analytics } from 'firebase';
+import { Chart } from 'chart.js';
+import { Subscription } from 'rxjs';
 import { FormBuilder } from '@angular/forms';
+import * as moment from 'moment';
 
 @Component({
   selector: 'app-list',
@@ -10,52 +13,174 @@ import { FormBuilder } from '@angular/forms';
   styleUrls: ['list.page.scss']
 })
 export class ListPage implements OnInit {
-  livingroom:any
-  diningroom:any
-  kitchen:any
-  value:any
-  foco:any
-  data:Focos[]=[];
-  constructor(private houseIot: IotFirebaseService) {
-    
-    this.houseIot.getStatus()
-    .subscribe((res)=>{
-      this.data=res;
-      console.log(this.data)
-      console.log(this.value=res);
-      if(this.value == "on"){
-        this.livingroom =  true;
-      }
-    })
+  @ViewChild('chart', { static: false }) chart;
+  bars: any;
+  array: any = [];
+  history: any = [];
+  dates: any = [];
+  states: any = [];
+  show = false;
+  showSplash = true;
+  suscription: Subscription;
+  data: Focos[] = [];
 
+  constructor(private houseIoTService: IotFirebaseService) {
+    this.suscription = this.houseIoTService.getStatus()
+      .subscribe((res) => {
+        this.array = res;
+        console.log(this.array);
+      });
+    setTimeout(() => {
+      this.showSplash = false;
+      this.show = true;
+    }, 3000);
   }
-  
-  getValue(value) {
-    console.log(value)
-  }
-  updateStatus(e,id) {
-    console.log(e.detail.checked)
-    var con;
-    if(e.detail.checked===true){
-      con=true
-    }else{
-      con=false
+
+  updateStatus(e, idDocument: any) {
+    // declaramos todas las variables a utilizar
+    let status;
+    let today;
+    let todayTime;
+    let currentDate;
+    let lastTimeDiff;
+    let newTimeDiff;
+    // asignamos el valor que obtenemos del foco
+    if (e.detail.checked === true) {
+      status = true;
+    } else {
+      status = false;
     }
-      this.houseIot.updateStatus3(con,id).then((res) => {
-        console.log(res)
-      }).catch((err) => {
-        console.log(err);
-      })
+    // obtenemos el tamaño del documento historial de firebase
+    const length = this.cargarHistorial(idDocument);
+    // creamos nueva fecha para saber que dia es y lo guardamos en una variable con el formato d-m-a
+    today = new Date();
+    currentDate = `${today.getDate() < 10 ? 0 + today.getDate() : today.getDate()}-${10 > (today.getMonth() + 1) ? 0 + (today.getMonth() + 1) : (today.getMonth() + 1)}-${today.getFullYear()}`;
+    todayTime = `${today.getHours()}:${today.getMinutes()}:${today.getSeconds()}`;
+    // evaluamos si hay o no historial
+    if (length === 0) {
+      this.houseIoTService.insertNewDay(idDocument, length, currentDate);
+      this.houseIoTService.updateStatus(status, idDocument, length, todayTime, '0');
+    } else {
+      // cuando hay historial comparamos si nos encontramos en el mismo dia o en otro
+      if (this.history[length - 1].fecha < currentDate) {
+        // si estamos en otro dia debemos calcular el tiempo que transcurrio hasta las 23:59:59 del dia anterior
+        // para no mezclar el tiempo de uso, en caso de que el foco haya quedado encendido (true). Para eso
+        // vamos a evaluar si el foco quedó encendido o apagado
+        if (this.history[length - 1].state === true) {
+          // calculamos el tiempo que duro prendido antes de las 12 en lastTimeDiff
+          const lastTime = moment.duration(this.history[length - 1].referencia);
+          let end = moment.duration('24:00:00');
+          lastTimeDiff = end.subtract(lastTime);
+          // en newTimeDiff guardamos lo que ha estado prendido despues de las 12
+          const start = moment.duration('00:00:00');
+          end = moment.duration(todayTime);
+          newTimeDiff = end.subtract(start);
+          // actualizamos el tiempo acumulado mas el que obtuvimos en lastTimeDiff de el dia anterior
+          const acumulador = moment.duration(this.history[length - 1].tiempo);
+          acumulador.add(lastTimeDiff);
+          // actualizamos el dia anterior y luego actualizamos el dia actual o sea hoy
+          this.houseIoTService.updateStatus(!status, idDocument, length - 1, '0',
+            `${acumulador.hours()}:${acumulador.minutes()}:${acumulador.seconds()}`).then(() => {
+              this.houseIoTService.insertNewDay(idDocument, length, currentDate);
+              this.houseIoTService.updateStatus(status, idDocument, length, todayTime,
+                `${newTimeDiff.hours()}:${newTimeDiff.minutes()}:${newTimeDiff.seconds()}`);
+            });
+        } else {
+          // esto se ejecuta si el foco no estaba prendido
+          this.houseIoTService.insertNewDay(idDocument, length, currentDate);
+          this.houseIoTService.updateStatus(status, idDocument, length, todayTime, '00:00:00');
+        }
+      } else {
+        // esto se ejecuta si estamos en el mismo dia
+        const ref = moment.duration(this.history[length - 1].referencia);
+        const timeAcum = moment.duration(this.history[length - 1].tiempo);
+        const onOff = this.history[length - 1].state;
+        let result;
+        // si el foco se va a apagar calculamos el tiempo que estuvo encendido
+        if (onOff) {
+          console.log('entro al if de apagar el foco');
+          const final = moment.duration(todayTime);
+          const resultRest = final.subtract(ref);
+          resultRest.add(timeAcum);
+          result = `${resultRest.hours()}:${resultRest.minutes()}:${resultRest.seconds()}`;
+        } else {
+          result = this.history[length - 1].tiempo;
+        }
+        this.houseIoTService.updateStatus(status, idDocument, length - 1, todayTime, result);
+      }
+    }
   }
-  updateStatus2(foco,nombre) {  
-    const value = foco ? "on" : "off"
-    this.houseIot.updateStatus2(value,nombre).then((res) => {
-      console.log(res)
-    }).catch((err) => {
-      console.log(err);
-    })
-  
+  cargarChart(id: any,nombre:any) {
+    this.dates = [];
+    this.states = [];
+    this.cargarHistorial(id);
+    this.history.forEach(element => {
+      this.dates.push(element.fecha);
+      this.states.push(moment.duration(element.tiempo).asMinutes());
+    });
+    if (this.bars) {
+      this.bars.destroy();
+    }
+    if (this.history.length !== 0) {
+      this.bars = new Chart(this.chart.nativeElement, {
+        type: 'bar',
+        data: {
+          labels: this.dates,
+          datasets: [{
+            label: nombre,
+            data: this.states,
+            backgroundColor: [
+              'rgba(255, 99, 132, 0.2)',
+              'rgba(54, 162, 235, 0.2)',
+              'rgba(255, 206, 86, 0.2)',
+              'rgba(75, 192, 192, 0.2)',
+              'rgba(153, 102, 255, 0.2)',
+              'rgba(255, 159, 64, 0.2)'
+            ],
+            borderColor: '9A33FF',
+            borderWidth: 1,
+            fill: 'start'
+          }]
+        },
+        options: {
+          options: {
+          },
+          scales: {
+            yAxes: [{
+              ticks: {
+                beginAtZero: true
+              }
+            }],
+            yAxisID: 'Minutos'
+          }
+        }
+      });
+    }
+    console.log(this.states);
+  }
+  cargarHistorial(id: any) {
+    let array = [];
+    this.history = [];
+    if (this.array[id - 1].historial !== undefined) {
+      array = this.array[id - 1].historial;
+      let count = 0;
+      while (true) {
+        if (array[count] === undefined) {
+          break;
+        } else {
+          this.history.push(array[count]);
+        }
+        count++;
+      }
+      console.log(this.history);
+      return this.history.length;
+    } else {
+      return 0;
+    }
+  }
+  ngOnDestroy(): void {
+    this.suscription.unsubscribe();
+  }
+  ngOnInit() {
+  }
 }
-    ngOnInit() {
-    }
-  }
