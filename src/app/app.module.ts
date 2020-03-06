@@ -12,7 +12,8 @@ import {AngularFireModule} from '@angular/fire';
 import {AngularFireDatabaseModule} from '@angular/fire/database';
 import { FormBuilder, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { GaugeModule } from 'angular-gauge';
-
+import {Facebook} from '@ionic-native/Facebook/ngx';
+import {NativeStorage} from '@ionic-native/native-storage/ngx';
 var firebaseConfig = {
   apiKey: "AIzaSyDXWL_Ca1DFC21ZtSdIeNbMl_hzFu16gno",
   authDomain: "houseiot-10859.firebaseapp.com",
@@ -38,6 +39,8 @@ var firebaseConfig = {
   providers: [
     StatusBar,
     OneSignal,
+    Facebook,
+    NativeStorage,
     SplashScreen,
     { provide: RouteReuseStrategy, useClass: IonicRouteStrategy }
   ],
