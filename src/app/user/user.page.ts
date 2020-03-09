@@ -19,13 +19,38 @@ export class UserPage implements OnInit {
     return await loading.present();
   }
   async faceboolLogin(){
-    let permissions = new Array<String>();
     const loading = await this.loading.create({
       message:'please wait'
     });
     this.load(loading);
-    permissions=['public_profile','email'];
+    let permissions = new Array();
+    permissions=["public_profile","email"];
 
+    this.facebook.login(permissions).then(response =>{
+      let userId= response.authResponse.userID;
+
+      this.facebook.api("/me?fields=name,email",permissions)
+      .then(user =>{
+         user.picture = "http://graph.facebook.com/"+ userId + "/picture=type=large";
+         this.nativeS.setItem('facebook_user',
+         {
+           name:user.name,
+           email:user.email,
+           picture:user.picture
+         })
+         .then(()=>{
+           this.router.navigate(["/user"]);
+           loading.dismiss();
+         },error=>{
+           console.log(error);
+           loading.dismiss();
+         })
+      })
+
+    },error=>{
+      console.log(error);
+      loading.dismiss();
+    });
 
     
   }
